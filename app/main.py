@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-
 from app.api.chat import router as chat_router
 from app.api.ingestion import router as ingestion_router
 from app.core.config import settings
@@ -26,7 +25,4 @@ app.include_router(ingestion_router, prefix=f"{settings.API_V1_STR}", tags=["Ing
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """
-    Health check endpoint for deployment probes.
-    """
     return {"status": "ok", "version": "1.0.0"}

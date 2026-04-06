@@ -4,6 +4,8 @@ from app.agents.support_agent import run_agent
 
 router = APIRouter()
 
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """

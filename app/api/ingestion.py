@@ -1,28 +1,46 @@
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
+from app.workers.celery_worker import process_document
 
 router = APIRouter()
 
+ALLOWED_EXTENSIONS = {".txt", ".pdf"}
+
+
 class IngestResponse(BaseModel):
     message: str
-    filename: str
+    files_queued: int
+    filenames: list[str]
+
+
+def _validate_file(filename: str) -> None:
+    if not filename:
+        raise HTTPException(status_code=400, detail="A file is missing a filename")
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}' for '{filename}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
 
 @router.post("/upload", response_model=IngestResponse)
-async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """
-    Accepts a document (PDF, TXT), saves it temporarily, and triggers background ingestion.
-    """
-    # Read file content (stub)
-    content = await file.read()
-    
-    # Trigger background task for chunking, embedding, and storing
-    background_tasks.add_task(dummy_ingestion_task, file.filename, len(content))
-    
-    return IngestResponse(
-        message="Document uploaded successfully. Processing in background.",
-        filename=file.filename
-    )
+async def upload_documents(
+    files: list[UploadFile] = File(...),
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
 
-def dummy_ingestion_task(filename: str, size: int):
-    # Stub for actual ingestion pipeline call (or Celery task)
-    print(f"Ingesting file {filename} of size {size} bytes in background")
+    queued: list[str] = []
+    for file in files:
+        _validate_file(file.filename)
+        content = await file.read()
+        process_document.delay(file.filename, content)  # send to Celery queue
+        queued.append(file.filename)
+        print(f"[upload] Sent to Celery: {file.filename}")
+
+    return IngestResponse(
+        message="Files uploaded and processing started",
+        files_queued=len(queued),
+        filenames=queued,
+    )
