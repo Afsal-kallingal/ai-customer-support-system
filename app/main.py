@@ -26,3 +26,15 @@ app.include_router(ingestion_router, prefix=f"{settings.API_V1_STR}", tags=["Ing
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "version": "1.0.0"}
+
+@app.get("/debug/vectorstore", tags=["Debug"])
+async def debug_vectorstore():
+    from app.rag.vector_store import index, documents, metadata_store
+    return {
+        "total_vectors": index.ntotal,
+        "total_documents": len(documents),
+        "samples": [
+            {"chunk": documents[i][:100], "source": metadata_store[i]}
+            for i in range(min(5, len(documents)))
+        ]
+    }

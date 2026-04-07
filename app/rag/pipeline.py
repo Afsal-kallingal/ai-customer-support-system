@@ -1,10 +1,8 @@
 import numpy as np
 from app.agents.llm import call_llm
 from app.rag.embedding import generate_embedding
-from app.rag.retriever import retrieve_documents
-# from app.rag.embedding import generate_embedding
-from app.rag.vector_store import index, documents, metadata_store
-from app.rag.parser import parse_file,chunk_text
+from app.rag.vector_store import index, documents, metadata_store, retrieve_documents
+from app.rag.parser import parse_file, chunk_text
 
 
 def generate_answer(query: str):
@@ -37,8 +35,14 @@ Question:
 
 def ingestion_task(filename: str, content: bytes):
     text = parse_file(filename, content)
+    print(f"[pipeline] Parsed text length: {len(text)} chars from {filename}")
+
+    if not text.strip():
+        print(f"[pipeline] WARNING: No text extracted from {filename}")
+        return
 
     chunks = chunk_text(text)
+    print(f"[pipeline] Created {len(chunks)} chunks")
 
     vectors = []
     
@@ -54,5 +58,9 @@ def ingestion_task(filename: str, content: bytes):
 
     # Add to FAISS
     index.add(vectors_np)
+
+    # Persist to disk so API server can read it
+    from app.rag.vector_store import save_to_disk
+    save_to_disk()
 
     print(f"✅ Ingested {len(chunks)} chunks from {filename}")

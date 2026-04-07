@@ -2,5 +2,11 @@ fastapi
 pydantic
 pydantic-settings
 uvicorn
-celery
+celery[redis]
+redis
 python-multipart
+sentence-transformers
+torch
+numpy
+faiss-cpu
+PyPDF2
